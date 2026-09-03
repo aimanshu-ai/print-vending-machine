@@ -1313,7 +1313,7 @@ async function uploadPDF(
     const response =
         await fetch(
 
-            "http://localhost:3000/api/upload-pdf",
+            "https://print-vending-machine.onrender.com/api/upload-pdf",
 
             {
 
@@ -1416,7 +1416,7 @@ async function createOrder(
         const response =
             await fetch(
 
-                "http://localhost:3000/api/orders",
+                "https://print-vending-machine.onrender.com/api/orders",
 
                 {
 
@@ -1549,7 +1549,7 @@ async function createRazorpayOrder(
         const response =
             await fetch(
 
-                "http://localhost:3000/api/payment/create",
+                "https://print-vending-machine.onrender.com/api/payment/create",
 
                 {
 
@@ -1723,7 +1723,7 @@ function openRazorpayCheckout(
     try {
 
         const verifyResponse = await fetch(
-            "http://localhost:3000/api/payment/verify",
+            "https://print-vending-machine.onrender.com/api/payment/verify",
             {
                 method: "POST",
 
