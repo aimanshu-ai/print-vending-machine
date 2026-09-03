@@ -1,0 +1,1895 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Print Vending Machine</title>
+
+
+    <!-- ======================================
+         PDF.JS
+    ======================================= -->
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+
+    <!-- ======================================
+         RAZORPAY CHECKOUT
+    ======================================= -->
+
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+
+    <style>
+
+       <style>
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: Inter, Arial, sans-serif;
+    }
+
+    body {
+        min-height: 100vh;
+        background:
+            radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.10), transparent 25%),
+            radial-gradient(circle at 90% 30%, rgba(139, 92, 246, 0.10), transparent 25%),
+            #f7f8fc;
+        color: #171a2b;
+    }
+
+    /* =========================
+       NAVBAR
+    ========================= */
+
+    .navbar {
+        height: 76px;
+        background: #111426;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 6%;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    }
+
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .brand-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 13px;
+        background: linear-gradient(135deg, #6366f1, #7c3aed);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 25px;
+        box-shadow: 0 8px 25px rgba(99,102,241,.35);
+    }
+
+    .brand-text h2 {
+        font-size: 20px;
+        font-weight: 750;
+    }
+
+    .brand-text p {
+        color: #aeb3c7;
+        font-size: 12px;
+        margin-top: 3px;
+    }
+
+    .nav-links {
+        display: flex;
+        gap: 34px;
+        align-items: center;
+    }
+
+    .nav-links a {
+        color: #e8e9f2;
+        text-decoration: none;
+        font-size: 14px;
+        transition: .2s;
+    }
+
+    .nav-links a:hover {
+        color: #a78bfa;
+    }
+
+    /* =========================
+       HERO
+    ========================= */
+
+    .hero {
+        text-align: center;
+        padding: 65px 20px 30px;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 9px 18px;
+        border-radius: 30px;
+        background: #eeeaff;
+        color: #5b3cc4;
+        font-weight: 700;
+        font-size: 13px;
+        margin-bottom: 20px;
+    }
+
+    .hero h1 {
+        font-size: clamp(38px, 5vw, 62px);
+        line-height: 1.05;
+        letter-spacing: -2px;
+        margin-bottom: 18px;
+        background: linear-gradient(90deg, #111426, #5b21b6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+        font-size: 18px;
+        color: #62677b;
+        max-width: 700px;
+        margin: auto;
+        line-height: 1.6;
+    }
+
+    /* =========================
+       MAIN CARD
+    ========================= */
+
+    .main-wrapper {
+        width: min(900px, 92%);
+        margin: 30px auto 70px;
+    }
+
+    .container {
+        background: rgba(255,255,255,.94);
+        border-radius: 24px;
+        padding: 42px;
+        box-shadow:
+            0 25px 70px rgba(31, 41, 88, .12),
+            0 2px 10px rgba(0,0,0,.04);
+        border: 1px solid #ececf5;
+    }
+
+    .upload-box {
+        border: 2px dashed #b7a9ff;
+        background: linear-gradient(180deg, #fbfaff, #ffffff);
+        padding: 52px 30px;
+        border-radius: 20px;
+        text-align: center;
+        transition: .25s;
+    }
+
+    .upload-box:hover {
+        border-color: #6d3df5;
+        background: #faf8ff;
+        transform: translateY(-2px);
+    }
+
+    .upload-icon {
+        width: 70px;
+        height: 70px;
+        margin: 0 auto 18px;
+        border-radius: 20px;
+        background: #eee9ff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 34px;
+    }
+
+    .upload-box h3 {
+        font-size: 25px;
+        margin-bottom: 9px;
+    }
+
+    .upload-box p {
+        color: #73778a;
+        margin-bottom: 24px;
+    }
+
+    /* Hide original file input */
+    #pdfFile {
+        display: none;
+    }
+
+    .choose-file {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        padding: 14px 28px;
+        background: linear-gradient(135deg, #5b21b6, #7c3aed);
+        color: white;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 10px 25px rgba(91,33,182,.28);
+        transition: .2s;
+    }
+
+    .choose-file:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 14px 30px rgba(91,33,182,.35);
+    }
+
+    .upload-note {
+        font-size: 12px;
+        color: #9699aa;
+        margin-top: 18px;
+    }
+
+    /* =========================
+       FILE INFO
+    ========================= */
+
+    .info {
+        margin-top: 24px;
+        padding: 22px;
+        background: #f7f6ff;
+        border: 1px solid #e5e0ff;
+        border-radius: 15px;
+        display: none;
+        line-height: 2;
+    }
+
+    .info p {
+        display: flex;
+        justify-content: space-between;
+        border-bottom: 1px solid #e8e6f0;
+        padding: 5px 0;
+    }
+
+    .info p:last-child {
+        border-bottom: none;
+    }
+
+    /* =========================
+       PRINT OPTIONS
+    ========================= */
+
+    .options {
+        display: none;
+        margin-top: 30px;
+    }
+
+    .options h3 {
+        font-size: 22px;
+        margin-bottom: 16px;
+    }
+
+    .option {
+        padding: 22px;
+        margin: 12px 0;
+        border: 2px solid #e8e8ef;
+        border-radius: 15px;
+        cursor: pointer;
+        transition: .2s;
+        background: white;
+    }
+
+    .option:hover {
+        border-color: #8b5cf6;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(91,33,182,.08);
+    }
+
+    .option.selected {
+        border-color: #6d28d9;
+        background: #f7f3ff;
+        box-shadow: 0 8px 25px rgba(91,33,182,.10);
+    }
+
+    #selectedMode {
+        margin-top: 15px;
+        font-weight: 600;
+        color: #5b21b6;
+    }
+
+    button {
+        margin-top: 22px;
+        padding: 14px 30px;
+        border: none;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #5b21b6, #7c3aed);
+        color: white;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 8px 20px rgba(91,33,182,.22);
+        transition: .2s;
+    }
+
+    button:hover {
+        transform: translateY(-2px);
+    }
+
+    button:disabled {
+        background: #aaa;
+        box-shadow: none;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    /* =========================
+       PAYMENT
+    ========================= */
+
+    .payment-section {
+        display: none;
+        margin-top: 35px;
+        text-align: left;
+    }
+
+    .payment-section > h2 {
+        margin-bottom: 18px;
+    }
+
+    .summary {
+        background: #f8f8fc;
+        border: 1px solid #e8e8ef;
+        padding: 24px;
+        border-radius: 16px;
+        line-height: 2.2;
+    }
+
+    .summary hr {
+        border: none;
+        border-top: 1px solid #dddde6;
+        margin: 12px 0;
+    }
+
+    .summary h2 {
+        color: #5b21b6;
+    }
+
+    .payment-box {
+        margin-top: 20px;
+        text-align: center;
+        padding: 28px;
+        background: linear-gradient(135deg, #faf9ff, #ffffff);
+        border: 1px solid #e4dfff;
+        border-radius: 16px;
+    }
+
+    #paymentStatus {
+        margin-top: 12px;
+        font-weight: 700;
+    }
+
+    .success {
+        color: #16803c;
+    }
+
+    .error {
+        color: #dc2626;
+    }
+
+    /* =========================
+       BENEFITS
+    ========================= */
+
+    .benefits {
+        width: min(1100px, 92%);
+        margin: 0 auto 70px;
+        background: white;
+        border: 1px solid #eeeeF5;
+        border-radius: 20px;
+        padding: 25px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        box-shadow: 0 15px 40px rgba(30,35,80,.07);
+    }
+
+    .benefit {
+        padding: 15px 25px;
+        border-right: 1px solid #eeeeF5;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .benefit:last-child {
+        border-right: none;
+    }
+
+    .benefit-icon {
+        min-width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background: #f0ebff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+    }
+
+    .benefit h4 {
+        margin-bottom: 5px;
+    }
+
+    .benefit p {
+        color: #7b7e90;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    /* =========================
+       FOOTER
+    ========================= */
+
+    footer {
+        background: #111426;
+        color: white;
+        padding: 32px 6%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .footer-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .footer-brand-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #6366f1, #7c3aed);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    footer p {
+        color: #aeb3c7;
+        font-size: 12px;
+    }
+
+    .razorpay-text {
+        color: #c8c9d5;
+    }
+
+    .razorpay-text strong {
+        color: #a78bfa;
+    }
+
+    /* =========================
+       RESPONSIVE
+    ========================= */
+
+    @media (max-width: 800px) {
+
+        .nav-links {
+            display: none;
+        }
+
+        .hero {
+            padding-top: 45px;
+        }
+
+        .hero h1 {
+            font-size: 40px;
+        }
+
+        .container {
+            padding: 22px;
+        }
+
+        .benefits {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .benefit:nth-child(2) {
+            border-right: none;
+        }
+
+        .benefit {
+            border-bottom: 1px solid #eeeeF5;
+        }
+
+        footer {
+            flex-direction: column;
+            gap: 20px;
+            text-align: center;
+        }
+    }
+
+    @media (max-width: 500px) {
+
+        .benefits {
+            grid-template-columns: 1fr;
+        }
+
+        .benefit {
+            border-right: none;
+        }
+
+        .upload-box {
+            padding: 35px 18px;
+        }
+    }
+</style>
+
+    </style>
+
+</head>
+
+
+<body>
+
+<body>
+
+    <!-- =========================
+         NAVBAR
+    ========================== -->
+
+    <nav class="navbar">
+
+        <div class="brand">
+
+            <div class="brand-icon">
+                🖨️
+            </div>
+
+            <div class="brand-text">
+                <h2>Print Vending Machine</h2>
+                <p>Print Smart. Pay Easy. Get Instant.</p>
+            </div>
+
+        </div>
+
+        <div class="nav-links">
+
+            <a href="#">⌂ Home</a>
+            <a href="#how-it-works">ⓘ How It Works</a>
+            <a href="#pricing">🏷 Pricing</a>
+            <a href="#contact">☎ Contact</a>
+
+        </div>
+
+    </nav>
+
+
+    <!-- =========================
+         HERO
+    ========================== -->
+
+    <section class="hero">
+
+        <div class="badge">
+            📄 Fast • Secure • Reliable
+        </div>
+
+        <h1>
+            Print Anything, Anytime
+        </h1>
+
+        <p>
+            Upload your PDF, choose your printing options,
+            pay securely and get your prints instantly.
+        </p>
+
+    </section>
+
+
+    <!-- =========================
+         MAIN
+    ========================== -->
+
+    <main class="main-wrapper">
+
+        <div class="container">
+
+            <!-- PDF UPLOAD -->
+
+            <div class="upload-box">
+
+                <div class="upload-icon">
+                    ☁️
+                </div>
+
+                <h3>
+                    Upload Your PDF
+                </h3>
+
+                <p>
+                    Drag & drop your PDF file here or click to browse
+                </p>
+
+                <label
+                    for="pdfFile"
+                    class="choose-file"
+                >
+                    📄 Choose PDF File
+                </label>
+
+                <input
+                    type="file"
+                    id="pdfFile"
+                    accept=".pdf,application/pdf"
+                >
+
+                <div class="upload-note">
+                    Only PDF files are allowed • Max file size: 20MB
+                </div>
+
+            </div>
+
+
+            <!-- FILE INFORMATION -->
+
+            <div
+                class="info"
+                id="fileInfo"
+            >
+
+                <p>
+                    <strong>File</strong>
+                    <span id="fileName"></span>
+                </p>
+
+                <p>
+                    <strong>Size</strong>
+                    <span id="fileSize"></span>
+                </p>
+
+                <p>
+                    <strong>Pages</strong>
+                    <span id="pageCount">0</span>
+                </p>
+
+            </div>
+
+
+            <!-- PRINT OPTIONS -->
+
+            <div
+                class="options"
+                id="printOptions"
+            >
+
+                <h3>
+                    Choose Printing Type
+                </h3>
+
+
+                <div
+                    class="option"
+                    id="bwOption"
+                    onclick="selectMode('bw')"
+                >
+
+                    <strong>🖤 Black & White</strong>
+
+                    <br>
+
+                    <span>
+                        Fast & affordable printing
+                    </span>
+
+                    <br>
+
+                    <strong>
+                        ₹2 / page
+                    </strong>
+
+                </div>
+
+
+                <div
+                    class="option"
+                    id="colorOption"
+                    onclick="selectMode('color')"
+                >
+
+                    <strong>🌈 Color Printing</strong>
+
+                    <br>
+
+                    <span>
+                        High-quality color printing
+                    </span>
+
+                    <br>
+
+                    <strong>
+                        ₹5 / page
+                    </strong>
+
+                </div>
+
+
+                <p id="selectedMode"></p>
+
+
+                <button
+                    id="continueButton"
+                    onclick="continueOrder()"
+                >
+                    Continue to Payment →
+                </button>
+
+            </div>
+
+
+            <!-- ORDER SUMMARY + PAYMENT -->
+
+            <div
+                class="payment-section"
+                id="paymentSection"
+            >
+
+                <h2>
+                    🧾 Order Summary
+                </h2>
+
+
+                <div class="summary">
+
+                    <p>
+                        <strong>File:</strong>
+                        <span id="summaryFile"></span>
+                    </p>
+
+                    <p>
+                        <strong>Pages:</strong>
+                        <span id="summaryPages"></span>
+                    </p>
+
+                    <p>
+                        <strong>Print Type:</strong>
+                        <span id="summaryMode"></span>
+                    </p>
+
+                    <p>
+                        <strong>Price/Page:</strong>
+                        ₹<span id="summaryPrice"></span>
+                    </p>
+
+                    <hr>
+
+                    <h2>
+                        Total:
+                        ₹<span id="summaryTotal"></span>
+                    </h2>
+
+                </div>
+
+
+                <div class="payment-box">
+
+                    <h3>
+                        🔐 Secure Payment
+                    </h3>
+
+                    <p id="paymentStatus">
+                        Preparing payment...
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+
+    <!-- =========================
+         BENEFITS
+    ========================== -->
+
+    <section
+        class="benefits"
+        id="how-it-works"
+    >
+
+        <div class="benefit">
+
+            <div class="benefit-icon">
+                🛡️
+            </div>
+
+            <div>
+                <h4>Secure Payments</h4>
+                <p>
+                    Safe payment powered by Razorpay
+                </p>
+            </div>
+
+        </div>
+
+
+        <div class="benefit">
+
+            <div class="benefit-icon">
+                ⚡
+            </div>
+
+            <div>
+                <h4>Instant Printing</h4>
+                <p>
+                    Get your prints quickly after payment
+                </p>
+            </div>
+
+        </div>
+
+
+        <div class="benefit">
+
+            <div class="benefit-icon">
+                📄
+            </div>
+
+            <div>
+                <h4>High Quality</h4>
+                <p>
+                    Crisp and clear document printing
+                </p>
+            </div>
+
+        </div>
+
+
+        <div
+            class="benefit"
+            id="pricing"
+        >
+
+            <div class="benefit-icon">
+                🕐
+            </div>
+
+            <div>
+                <h4>24/7 Available</h4>
+                <p>
+                    Print whenever you need
+                </p>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =========================
+         FOOTER
+    ========================== -->
+
+    <footer id="contact">
+
+        <div class="footer-brand">
+
+            <div class="footer-brand-icon">
+                🖨️
+            </div>
+
+            <div>
+                <strong>
+                    Print Vending Machine
+                </strong>
+
+                <p>
+                    © 2026 All rights reserved.
+                </p>
+            </div>
+
+        </div>
+
+
+        <div class="razorpay-text">
+            🔐 Secured by <strong>Razorpay</strong>
+        </div>
+
+
+        <div>
+            <p>
+                Need help? Contact us
+            </p>
+        </div>
+
+    </footer>
+
+
+    <!-- =========================
+         YOUR EXISTING SCRIPT
+         DON'T CHANGE
+    ========================== -->
+<script>
+
+
+// ==========================================
+// GLOBAL VARIABLES
+// ==========================================
+
+const pdfFile =
+    document.getElementById("pdfFile");
+
+
+let selectedMode = "";
+
+let pageCount = 0;
+
+
+// ==========================================
+// RAZORPAY TEST KEY ID
+// ==========================================
+//
+// IMPORTANT:
+// Yahan ONLY Test Key ID lagani hai.
+//
+// Example:
+// rzp_test_xxxxxxxxxxxxx
+//
+// Key Secret yahan MAT lagana.
+// ==========================================
+
+const RAZORPAY_KEY_ID =
+    "rzp_test_TVZZkyLUCb6ahX";
+
+
+// ==========================================
+// PDF FILE SELECT
+// ==========================================
+
+pdfFile.addEventListener(
+    "change",
+    async function () {
+
+
+        const file =
+            this.files[0];
+
+
+        if (!file) {
+
+            return;
+
+        }
+
+
+        // Check PDF
+
+        if (
+            file.type !==
+            "application/pdf"
+        ) {
+
+            alert(
+                "Please select a PDF file."
+            );
+
+
+            this.value = "";
+
+
+            return;
+
+        }
+
+
+        // Show file information
+
+        document.getElementById(
+            "fileInfo"
+        ).style.display =
+            "block";
+
+
+        document.getElementById(
+            "fileName"
+        ).innerText =
+            file.name;
+
+
+        document.getElementById(
+            "fileSize"
+        ).innerText =
+            (
+                file.size /
+                1024 /
+                1024
+            ).toFixed(2)
+            + " MB";
+
+
+        // Read PDF
+
+        try {
+
+
+            const arrayBuffer =
+                await file.arrayBuffer();
+
+
+            const pdf =
+                await pdfjsLib
+                    .getDocument({
+                        data: arrayBuffer
+                    })
+                    .promise;
+
+
+            // Get number of pages
+
+            pageCount =
+                pdf.numPages;
+
+
+            document.getElementById(
+                "pageCount"
+            ).innerText =
+                pageCount;
+
+
+            // Show print options
+
+            document.getElementById(
+                "printOptions"
+            ).style.display =
+                "block";
+
+
+        }
+
+        catch (error) {
+
+
+            console.error(
+                "PDF Error:",
+                error
+            );
+
+
+            alert(
+                "PDF read nahi ho paayi."
+            );
+
+        }
+
+    }
+);
+
+
+// ==========================================
+// SELECT PRINT MODE
+// ==========================================
+
+function selectMode(mode) {
+
+
+    selectedMode =
+        mode;
+
+
+    // Remove previous selection
+
+    document.getElementById(
+        "bwOption"
+    ).classList.remove(
+        "selected"
+    );
+
+
+    document.getElementById(
+        "colorOption"
+    ).classList.remove(
+        "selected"
+    );
+
+
+    if (
+        mode === "bw"
+    ) {
+
+
+        document.getElementById(
+            "bwOption"
+        ).classList.add(
+            "selected"
+        );
+
+
+        document.getElementById(
+            "selectedMode"
+        ).innerText =
+            "Selected: Black & White";
+
+
+    }
+
+    else {
+
+
+        document.getElementById(
+            "colorOption"
+        ).classList.add(
+            "selected"
+        );
+
+
+        document.getElementById(
+            "selectedMode"
+        ).innerText =
+            "Selected: Color";
+
+    }
+
+}
+
+
+// ==========================================
+// CONTINUE ORDER
+// ==========================================
+
+async function continueOrder() {
+
+
+    if (
+        selectedMode === ""
+    ) {
+
+
+        alert(
+            "Please select printing type."
+        );
+
+
+        return;
+
+    }
+
+
+    const file =
+        pdfFile.files[0];
+
+
+    if (!file) {
+
+
+        alert(
+            "Please select a PDF first."
+        );
+
+
+        return;
+
+    }
+
+
+    if (
+        pageCount <= 0
+    ) {
+
+
+        alert(
+            "PDF page count is not available."
+        );
+
+
+        return;
+
+    }
+
+
+    // Calculate price
+
+    let pricePerPage;
+
+
+    if (
+        selectedMode === "bw"
+    ) {
+
+        pricePerPage = 2;
+
+    }
+
+    else {
+
+        pricePerPage = 5;
+
+    }
+
+
+    const totalPrice =
+        pageCount *
+        pricePerPage;
+
+
+    // Show summary
+
+    document.getElementById(
+        "summaryFile"
+    ).innerText =
+        file.name;
+
+
+    document.getElementById(
+        "summaryPages"
+    ).innerText =
+        pageCount;
+
+
+    document.getElementById(
+        "summaryMode"
+    ).innerText =
+
+        selectedMode === "bw"
+
+            ? "Black & White"
+
+            : "Color";
+
+
+    document.getElementById(
+        "summaryPrice"
+    ).innerText =
+        pricePerPage;
+
+
+    document.getElementById(
+        "summaryTotal"
+    ).innerText =
+        totalPrice;
+
+
+    // Show payment section
+
+    document.getElementById(
+        "paymentSection"
+    ).style.display =
+        "block";
+
+
+    document.getElementById(
+        "paymentSection"
+    ).scrollIntoView({
+        behavior: "smooth"
+    });
+
+
+    // Disable button
+
+    document.getElementById(
+        "continueButton"
+    ).disabled =
+        true;
+
+
+    // Create order
+
+    await createOrder(
+
+        file,
+
+        pageCount,
+
+        selectedMode,
+
+        pricePerPage,
+
+        totalPrice
+
+    );
+
+}
+
+
+// ==========================================
+// UPLOAD PDF
+// ==========================================
+
+async function uploadPDF(
+    file
+) {
+
+
+    const formData =
+        new FormData();
+
+
+    formData.append(
+        "pdf",
+        file
+    );
+
+
+    const response =
+        await fetch(
+
+            "http://localhost:3000/api/upload-pdf",
+
+            {
+
+                method: "POST",
+
+                body: formData
+
+            }
+
+        );
+
+
+    if (
+        !response.ok
+    ) {
+
+
+        throw new Error(
+            "PDF upload failed"
+        );
+
+    }
+
+
+    const data =
+        await response.json();
+
+
+    if (
+        !data.success
+    ) {
+
+
+        throw new Error(
+            data.message
+        );
+
+    }
+
+
+    console.log(
+        "PDF Uploaded:",
+        data.file
+    );
+
+
+    return data.file;
+
+}
+
+
+// ==========================================
+// CREATE LOCAL ORDER
+// ==========================================
+
+async function createOrder(
+
+    file,
+
+    pages,
+
+    mode,
+
+    pricePerPage,
+
+    totalAmount
+
+) {
+
+
+    try {
+
+
+        // ------------------------------
+        // STEP 1: Upload PDF
+        // ------------------------------
+
+        document.getElementById(
+            "paymentStatus"
+        ).innerText =
+            "Uploading PDF...";
+
+
+        const uploadedFile =
+            await uploadPDF(
+                file
+            );
+
+
+        // ------------------------------
+        // STEP 2: Create Local Order
+        // ------------------------------
+
+        document.getElementById(
+            "paymentStatus"
+        ).innerText =
+            "Creating order...";
+
+
+        const response =
+            await fetch(
+
+                "http://localhost:3000/api/orders",
+
+                {
+
+                    method: "POST",
+
+                    headers: {
+
+                        "Content-Type":
+                            "application/json"
+
+                    },
+
+
+                    body:
+                        JSON.stringify({
+
+                            fileName:
+                                uploadedFile.originalName,
+
+                            filePath:
+                                uploadedFile.path,
+
+                            pageCount:
+                                pages,
+
+                            printMode:
+                                mode,
+
+                            pricePerPage:
+                                pricePerPage,
+
+                            totalAmount:
+                                totalAmount
+
+                        })
+
+                }
+
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (
+            !response.ok ||
+            !data.success
+        ) {
+
+
+            throw new Error(
+                data.message ||
+                "Order creation failed"
+            );
+
+        }
+
+
+        console.log(
+            "Local Order Created:",
+            data.order
+        );
+
+
+        // ------------------------------
+        // STEP 3: Razorpay Order
+        // ------------------------------
+
+        await createRazorpayOrder(
+
+            data.order.order_id
+
+        );
+
+
+    }
+
+    catch (error) {
+
+
+        console.error(
+            "Order Error:",
+            error
+        );
+
+
+        document.getElementById(
+            "paymentStatus"
+        ).innerText =
+            "Order creation failed.";
+
+
+        document.getElementById(
+            "continueButton"
+        ).disabled =
+            false;
+
+
+        alert(
+            error.message ||
+            "Order create nahi hua."
+        );
+
+    }
+
+}
+
+
+// ==========================================
+// CREATE RAZORPAY ORDER
+// ==========================================
+
+async function createRazorpayOrder(
+
+    localOrderId
+
+) {
+
+
+    try {
+
+
+        document.getElementById(
+            "paymentStatus"
+        ).innerText =
+            "Creating secure payment...";
+
+
+        const response =
+            await fetch(
+
+                "http://localhost:3000/api/payment/create",
+
+                {
+
+                    method: "POST",
+
+                    headers: {
+
+                        "Content-Type":
+                            "application/json"
+
+                    },
+
+
+                    body:
+                        JSON.stringify({
+
+                            orderId:
+                                localOrderId
+
+                        })
+
+                }
+
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (
+            !response.ok ||
+            !data.success
+        ) {
+
+
+            throw new Error(
+                data.message ||
+                "Razorpay order creation failed"
+            );
+
+        }
+
+
+        console.log(
+            "Razorpay Order:",
+            data.razorpayOrder
+        );
+
+
+        // Open Razorpay Checkout
+
+        openRazorpayCheckout(
+
+            localOrderId,
+
+            data.razorpayOrder
+
+        );
+
+
+    }
+
+    catch (error) {
+
+
+        console.error(
+            "Razorpay Order Error:",
+            error
+        );
+
+
+        document.getElementById(
+            "paymentStatus"
+        ).innerText =
+            "Payment setup failed.";
+
+
+        document.getElementById(
+            "continueButton"
+        ).disabled =
+            false;
+
+
+        alert(
+            error.message ||
+            "Payment setup failed."
+        );
+
+    }
+
+}
+
+
+// ==========================================
+// OPEN RAZORPAY CHECKOUT
+// ==========================================
+
+function openRazorpayCheckout(
+
+    localOrderId,
+
+    razorpayOrder
+
+) {
+
+
+    // Check Key ID
+
+    if (
+
+        !RAZORPAY_KEY_ID ||
+
+        RAZORPAY_KEY_ID ===
+        "YOUR_RAZORPAY_TEST_KEY_ID"
+
+    ) {
+
+
+        alert(
+            "Razorpay Test Key ID add karo."
+        );
+
+
+        return;
+
+    }
+
+
+    // Razorpay options
+
+    const options = {
+
+
+        key:
+            RAZORPAY_KEY_ID,
+
+
+        amount:
+            razorpayOrder.amount,
+
+
+        currency:
+            razorpayOrder.currency,
+
+
+        name:
+            "Print Vending Machine",
+
+
+        description:
+            "PDF Printing Order",
+
+
+        order_id:
+            razorpayOrder.id,
+
+
+       handler: async function (response) {
+
+    console.log(
+        "Payment Response:",
+        response
+    );
+
+    document.getElementById(
+        "paymentStatus"
+    ).innerText =
+        "Payment received. Verifying...";
+
+    try {
+
+        const verifyResponse = await fetch(
+            "http://localhost:3000/api/payment/verify",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+
+                    orderId: localOrderId,
+
+                    razorpay_order_id:
+                        response.razorpay_order_id,
+
+                    razorpay_payment_id:
+                        response.razorpay_payment_id,
+
+                    razorpay_signature:
+                        response.razorpay_signature
+
+                })
+            }
+        );
+
+        const verifyData =
+            await verifyResponse.json();
+
+        console.log(
+            "Verification Response:",
+            verifyData
+        );
+
+        if (
+            verifyResponse.ok &&
+            verifyData.success
+        ) {
+
+            document.getElementById(
+                "paymentStatus"
+            ).innerText =
+                "Payment successful! Order verified.";
+
+            alert(
+                "Payment successful! Order verified."
+            );
+
+        } else {
+
+            document.getElementById(
+                "paymentStatus"
+            ).innerText =
+                "Payment verification failed.";
+
+            alert(
+                "Payment verification failed."
+            );
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Payment verification error:",
+            error
+        );
+
+        document.getElementById(
+            "paymentStatus"
+        ).innerText =
+            "Payment verification error.";
+
+        alert(
+            "Payment verification error."
+        );
+
+    }
+
+},
+
+        modal: {
+
+            ondismiss:
+                function () {
+
+
+                    document.getElementById(
+                        "paymentStatus"
+                    ).innerText =
+                        "Payment cancelled.";
+
+
+                    document.getElementById(
+                        "continueButton"
+                    ).disabled =
+                        false;
+
+                }
+
+        },
+
+
+        theme: {
+
+            color:
+                "#111111"
+
+        }
+
+    };
+
+
+    // Create Razorpay instance
+
+    const rzp =
+        new Razorpay(
+            options
+        );
+
+
+    // Payment failed
+
+    rzp.on(
+
+        "payment.failed",
+
+        function (
+            response
+        ) {
+
+
+            console.error(
+                "Payment Failed:",
+                response.error
+            );
+
+
+            document.getElementById(
+                "paymentStatus"
+            ).innerText =
+                "Payment failed.";
+
+
+            document.getElementById(
+                "continueButton"
+            ).disabled =
+                false;
+
+
+            alert(
+                "Payment failed. Please try again."
+            );
+
+        }
+
+    );
+
+
+    // Open Razorpay Checkout
+
+    rzp.open();
+
+}
+
+</script>
+
+
+</body>
+
+</html>
