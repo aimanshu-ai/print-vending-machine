@@ -21,7 +21,6 @@ pool.on("error", (error) => {
 });
 
 async function initDatabase() {
-
     await pool.query(`
         CREATE TABLE IF NOT EXISTS orders (
             id SERIAL PRIMARY KEY,
