@@ -1,5 +1,5 @@
 // ==========================================
-// PRINT VENDING BACKEND
+// PRINT VENDING BACKEND - POSTGRESQL
 // ==========================================
 
 require("dotenv").config();
@@ -11,12 +11,12 @@ const db = require("./database");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const Razorpay = require("razorpay");
-const { execFile } = require("child_process");
 
 // ==========================================
-// RAZORPAY CONFIGURATION
+// RAZORPAY
 // ==========================================
+
+const Razorpay = require("razorpay");
 
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
@@ -24,31 +24,38 @@ const razorpay = new Razorpay({
 });
 
 // ==========================================
-// EXPRESS APP
+// EXPRESS
 // ==========================================
 
 const app = express();
-const PORT = 3000;
+
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
 // ==========================================
-// PDF UPLOAD CONFIGURATION
+// UPLOAD FOLDER
 // ==========================================
 
 const uploadFolder = path.join(__dirname, "uploads");
 
 if (!fs.existsSync(uploadFolder)) {
-    fs.mkdirSync(uploadFolder);
+    fs.mkdirSync(uploadFolder, { recursive: true });
 }
 
+// ==========================================
+// MULTER
+// ==========================================
+
 const storage = multer.diskStorage({
+
     destination: function (req, file, cb) {
         cb(null, uploadFolder);
     },
 
     filename: function (req, file, cb) {
+
         const uniqueName =
             Date.now() +
             "-" +
@@ -60,6 +67,7 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({
+
     storage: storage,
 
     limits: {
@@ -81,10 +89,11 @@ const upload = multer({
 // ==========================================
 
 const printQueue = [];
+
 let isPrinting = false;
 
 // ==========================================
-// HOME API
+// HOME
 // ==========================================
 
 app.get("/", (req, res) => {
@@ -110,7 +119,7 @@ app.get("/api/test", (req, res) => {
 });
 
 // ==========================================
-// PDF UPLOAD API
+// PDF UPLOAD
 // ==========================================
 
 app.post(
@@ -173,12 +182,12 @@ app.post(
 );
 
 // ==========================================
-// CREATE LOCAL PRINT ORDER
+// CREATE LOCAL ORDER
 // ==========================================
 
 app.post(
     "/api/orders",
-    (req, res) => {
+    async (req, res) => {
 
         try {
 
@@ -191,7 +200,9 @@ app.post(
                 totalAmount
             } = req.body;
 
-            // Validation
+            // ------------------------------------------
+            // VALIDATION
+            // ------------------------------------------
 
             if (
                 !fileName ||
@@ -210,7 +221,9 @@ app.post(
                 });
             }
 
-            // Validate print mode
+            // ------------------------------------------
+            // PRINT MODE
+            // ------------------------------------------
 
             if (
                 printMode !== "bw" &&
@@ -225,7 +238,9 @@ app.post(
                 });
             }
 
-            // Generate local Order ID
+            // ------------------------------------------
+            // ORDER ID
+            // ------------------------------------------
 
             const orderId =
                 "ORD-" +
@@ -233,12 +248,13 @@ app.post(
                 "-" +
                 Math.floor(Math.random() * 1000);
 
-            // Save order
+            // ------------------------------------------
+            // INSERT ORDER
+            // ------------------------------------------
 
-            const insertOrder = db.prepare(`
-
+            const result = await db.query(
+                `
                 INSERT INTO orders (
-
                     order_id,
                     file_name,
                     file_path,
@@ -248,58 +264,34 @@ app.post(
                     total_amount,
                     payment_status,
                     print_status
-
                 )
-
                 VALUES (
-
-                    @orderId,
-                    @fileName,
-                    @filePath,
-                    @pageCount,
-                    @printMode,
-                    @pricePerPage,
-                    @totalAmount,
+                    $1,
+                    $2,
+                    $3,
+                    $4,
+                    $5,
+                    $6,
+                    $7,
                     'PENDING',
                     'WAITING'
-
                 )
-
-            `);
-
-            insertOrder.run({
-
-                orderId: orderId,
-
-                fileName: fileName,
-
-                filePath: filePath,
-
-                pageCount: pageCount,
-
-                printMode: printMode,
-
-                pricePerPage: pricePerPage,
-
-                totalAmount: totalAmount
-
-            });
-
-            // Get saved order
-
-            const order = db.prepare(`
-
-                SELECT *
-
-                FROM orders
-
-                WHERE order_id = ?
-
-            `).get(orderId);
-
-            console.log(
-                "Order saved in database:"
+                RETURNING *
+                `,
+                [
+                    orderId,
+                    fileName,
+                    filePath,
+                    pageCount,
+                    printMode,
+                    pricePerPage,
+                    totalAmount
+                ]
             );
+
+            const order = result.rows[0];
+
+            console.log("Order saved in PostgreSQL:");
 
             console.log(order);
 
@@ -323,7 +315,9 @@ app.post(
 
                 success: false,
 
-                message: "Failed to create order"
+                message: "Failed to create order",
+
+                error: error.message
             });
         }
     }
@@ -353,17 +347,20 @@ app.post(
                 });
             }
 
-            // Find local order
+            // ------------------------------------------
+            // FIND LOCAL ORDER
+            // ------------------------------------------
 
-            const order = db.prepare(`
-
+            const result = await db.query(
+                `
                 SELECT *
-
                 FROM orders
+                WHERE order_id = $1
+                `,
+                [orderId]
+            );
 
-                WHERE order_id = ?
-
-            `).get(orderId);
+            const order = result.rows[0];
 
             if (!order) {
 
@@ -375,11 +372,11 @@ app.post(
                 });
             }
 
-            // Already paid?
+            // ------------------------------------------
+            // ALREADY PAID
+            // ------------------------------------------
 
-            if (
-                order.payment_status === "PAID"
-            ) {
+            if (order.payment_status === "PAID") {
 
                 return res.status(400).json({
 
@@ -389,14 +386,18 @@ app.post(
                 });
             }
 
-            // Convert rupees to paise
+            // ------------------------------------------
+            // RUPEES → PAISE
+            // ------------------------------------------
 
             const amountInPaise =
                 Math.round(
                     Number(order.total_amount) * 100
                 );
 
-            // Create Razorpay Order FIRST
+            // ------------------------------------------
+            // CREATE RAZORPAY ORDER
+            // ------------------------------------------
 
             const razorpayOrder =
                 await razorpay.orders.create({
@@ -421,7 +422,6 @@ app.post(
                         print_mode:
                             order.print_mode
                     }
-
                 });
 
             console.log(
@@ -438,33 +438,23 @@ app.post(
 
                 amount:
                     razorpayOrder.amount
-
             });
 
-            // Save Razorpay Order ID
+            // ------------------------------------------
+            // SAVE RAZORPAY ORDER ID
+            // ------------------------------------------
 
-            db.prepare(`
-
+            await db.query(
+                `
                 UPDATE orders
-
-                SET razorpay_order_id = ?
-
-                WHERE order_id = ?
-
-            `).run(
-
-                razorpayOrder.id,
-
-                order.order_id
-
+                SET razorpay_order_id = $1
+                WHERE order_id = $2
+                `,
+                [
+                    razorpayOrder.id,
+                    order.order_id
+                ]
             );
-
-            console.log(
-                "Razorpay Order ID saved:",
-                razorpayOrder.id
-            );
-
-            // Send data to frontend
 
             res.json({
 
@@ -481,7 +471,6 @@ app.post(
                     currency:
                         razorpayOrder.currency
                 }
-
             });
 
         } catch (error) {
@@ -495,7 +484,9 @@ app.post(
 
                 success: false,
 
-                message: "Could not create Razorpay order"
+                message: "Could not create Razorpay order",
+
+                error: error.message
             });
         }
     }
@@ -507,7 +498,7 @@ app.post(
 
 app.post(
     "/api/payment/verify",
-    (req, res) => {
+    async (req, res) => {
 
         try {
 
@@ -518,7 +509,9 @@ app.post(
                 razorpay_signature
             } = req.body;
 
-            // Check required data
+            // ------------------------------------------
+            // VALIDATION
+            // ------------------------------------------
 
             if (
                 !orderId ||
@@ -536,17 +529,20 @@ app.post(
                 });
             }
 
-            // Find local order
+            // ------------------------------------------
+            // FIND ORDER
+            // ------------------------------------------
 
-            const order = db.prepare(`
-
+            const result = await db.query(
+                `
                 SELECT *
-
                 FROM orders
+                WHERE order_id = $1
+                `,
+                [orderId]
+            );
 
-                WHERE order_id = ?
-
-            `).get(orderId);
+            const order = result.rows[0];
 
             if (!order) {
 
@@ -558,8 +554,9 @@ app.post(
                 });
             }
 
-            // IMPORTANT:
-            // Razorpay Order ID must match DB
+            // ------------------------------------------
+            // CHECK RAZORPAY ORDER ID
+            // ------------------------------------------
 
             if (
                 order.razorpay_order_id !==
@@ -579,7 +576,9 @@ app.post(
                 });
             }
 
-            // Generate signature
+            // ------------------------------------------
+            // GENERATE SIGNATURE
+            // ------------------------------------------
 
             const generatedSignature =
                 crypto
@@ -594,7 +593,9 @@ app.post(
                     )
                     .digest("hex");
 
-            // Compare signatures
+            // ------------------------------------------
+            // COMPARE SIGNATURE
+            // ------------------------------------------
 
             if (
                 generatedSignature !==
@@ -614,49 +615,46 @@ app.post(
                 });
             }
 
-            // Update payment status
+            // ------------------------------------------
+            // UPDATE PAYMENT
+            // ------------------------------------------
 
-            db.prepare(`
-
+            await db.query(
+                `
                 UPDATE orders
-
                 SET
-
                     payment_status = 'PAID',
-
                     print_status = 'READY',
-
-                    razorpay_payment_id = ?,
-
-                    razorpay_signature = ?
-
-                WHERE order_id = ?
-
-            `).run(
-
-                razorpay_payment_id,
-
-                razorpay_signature,
-
-                orderId
+                    razorpay_payment_id = $1,
+                    razorpay_signature = $2
+                WHERE order_id = $3
+                `,
+                [
+                    razorpay_payment_id,
+                    razorpay_signature,
+                    orderId
+                ]
             );
 
-            // Get updated order
+            // ------------------------------------------
+            // GET UPDATED ORDER
+            // ------------------------------------------
+
+            const updatedResult = await db.query(
+                `
+                SELECT *
+                FROM orders
+                WHERE order_id = $1
+                `,
+                [orderId]
+            );
 
             const updatedOrder =
-                db.prepare(`
+                updatedResult.rows[0];
 
-                    SELECT *
-
-                    FROM orders
-
-                    WHERE order_id = ?
-
-                `).get(orderId);
-
-            // ==========================================
-            // ADD VERIFIED PAYMENT TO PRINT QUEUE
-            // ==========================================
+            // ------------------------------------------
+            // ADD TO PRINT QUEUE
+            // ------------------------------------------
 
             const alreadyQueued =
                 printQueue.some(
@@ -692,15 +690,14 @@ app.post(
 
                 printQueue.push(printJob);
 
-                db.prepare(`
-
+                await db.query(
+                    `
                     UPDATE orders
-
                     SET print_status = 'QUEUED'
-
-                    WHERE order_id = ?
-
-                `).run(orderId);
+                    WHERE order_id = $1
+                    `,
+                    [orderId]
+                );
 
                 console.log(
                     "Print job automatically added:"
@@ -748,7 +745,9 @@ app.post(
                 success: false,
 
                 message:
-                    "Payment verification failed"
+                    "Payment verification failed",
+
+                error: error.message
             });
         }
     }
@@ -762,75 +761,21 @@ app.get(
     "/api/printer/status",
     (req, res) => {
 
-        execFile(
+        // Render cloud cannot access your
+        // local Windows printer.
 
-            "powershell.exe",
+        res.json({
 
-            [
-                "-NoProfile",
+            success: true,
 
-                "-Command",
+            environment: "cloud",
 
-                "Get-Printer | Select-Object Name,PrinterStatus,Default | ConvertTo-Json"
-            ],
+            message:
+                "Physical Windows printer must be connected through a local print agent.",
 
-            (error, stdout, stderr) => {
+            printers: []
+        });
 
-                if (error) {
-
-                    console.error(
-                        "Printer detection error:",
-                        error
-                    );
-
-                    return res.status(500).json({
-
-                        success: false,
-
-                        message:
-                            "Could not detect Windows printers"
-                    });
-                }
-
-                try {
-
-                    let printers =
-                        stdout.trim()
-                            ? JSON.parse(stdout)
-                            : [];
-
-                    if (
-                        !Array.isArray(printers)
-                    ) {
-
-                        printers = [printers];
-                    }
-
-                    res.json({
-
-                        success: true,
-
-                        printers:
-                            printers
-                    });
-
-                } catch (parseError) {
-
-                    console.error(
-                        "Printer data parse error:",
-                        parseError
-                    );
-
-                    res.status(500).json({
-
-                        success: false,
-
-                        message:
-                            "Could not read printer information"
-                    });
-                }
-            }
-        );
     }
 );
 
@@ -842,229 +787,49 @@ app.get(
     "/api/printer/list",
     (req, res) => {
 
-        execFile(
+        res.json({
 
-            "powershell.exe",
+            success: true,
 
-            [
-                "-NoProfile",
+            environment: "cloud",
 
-                "-Command",
+            count: 0,
 
-                `
-                Get-Printer |
-                Select-Object Name, PrinterStatus, Default |
-                ConvertTo-Json
-                `
-            ],
+            printers: [],
 
-            (error, stdout, stderr) => {
+            message:
+                "No local printers available on cloud server."
+        });
 
-                if (error) {
-
-                    console.error(
-                        "Printer list error:",
-                        error
-                    );
-
-                    return res.status(500).json({
-
-                        success: false,
-
-                        message:
-                            "Could not get printer list"
-                    });
-                }
-
-                try {
-
-                    let printers =
-                        stdout.trim()
-                            ? JSON.parse(stdout)
-                            : [];
-
-                    if (
-                        !Array.isArray(printers)
-                    ) {
-
-                        printers = [printers];
-                    }
-
-                    res.json({
-
-                        success: true,
-
-                        count:
-                            printers.length,
-
-                        printers:
-                            printers
-                    });
-
-                } catch (error) {
-
-                    console.error(
-                        "Printer JSON error:",
-                        error
-                    );
-
-                    res.status(500).json({
-
-                        success: false,
-
-                        message:
-                            "Invalid printer data"
-                    });
-                }
-            }
-        );
     }
 );
 
 // ==========================================
-// PRINT PDF API
+// PRINT PDF
 // ==========================================
 
 app.post(
     "/api/printer/print",
     (req, res) => {
 
-        try {
+        res.status(501).json({
 
-            const {
-                filePath,
-                printerName
-            } = req.body;
+            success: false,
 
-            if (!filePath) {
+            message:
+                "Physical printing requires the local Print Agent."
+        });
 
-                return res.status(400).json({
-
-                    success: false,
-
-                    message:
-                        "PDF file path is required"
-                });
-            }
-
-            if (!fs.existsSync(filePath)) {
-
-                return res.status(404).json({
-
-                    success: false,
-
-                    message:
-                        "PDF file not found"
-                });
-            }
-
-            const selectedPrinter =
-                printerName ||
-                "Microsoft Print to PDF";
-
-            console.log(
-                "Print Request:"
-            );
-
-            console.log({
-
-                filePath:
-                    filePath,
-
-                printer:
-                    selectedPrinter
-            });
-
-            const safePrinter =
-                selectedPrinter.replace(
-                    /'/g,
-                    "''"
-                );
-
-            const command = `
-
-                $printer = Get-CimInstance Win32_Printer |
-
-                    Where-Object {
-                        $_.Name -eq '${safePrinter}'
-                    };
-
-                if ($null -eq $printer) {
-                    throw "Printer not found";
-                }
-
-                Write-Output "Printer found: $($printer.Name)";
-
-            `;
-
-            execFile(
-
-                "powershell.exe",
-
-                [
-                    "-NoProfile",
-                    "-Command",
-                    command
-                ],
-
-                (error, stdout, stderr) => {
-
-                    if (error) {
-
-                        console.error(
-                            "Printer error:",
-                            stderr || error.message
-                        );
-
-                        return res.status(500).json({
-
-                            success: false,
-
-                            message:
-                                "Printer not found or unavailable"
-                        });
-                    }
-
-                    console.log(stdout);
-
-                    res.json({
-
-                        success: true,
-
-                        message:
-                            "Printer found and ready",
-
-                        printer:
-                            selectedPrinter
-                    });
-                }
-            );
-
-        } catch (error) {
-
-            console.error(
-                "Print API error:",
-                error
-            );
-
-            res.status(500).json({
-
-                success: false,
-
-                message:
-                    "Print request failed"
-            });
-        }
     }
 );
 
 // ==========================================
-// ADD ORDER TO PRINT QUEUE MANUALLY
+// ADD ORDER TO PRINT QUEUE
 // ==========================================
 
 app.post(
     "/api/printer/queue",
-    (req, res) => {
+    async (req, res) => {
 
         try {
 
@@ -1083,15 +848,16 @@ app.post(
                 });
             }
 
-            const order = db.prepare(`
-
+            const result = await db.query(
+                `
                 SELECT *
-
                 FROM orders
+                WHERE order_id = $1
+                `,
+                [orderId]
+            );
 
-                WHERE order_id = ?
-
-            `).get(orderId);
+            const order = result.rows[0];
 
             if (!order) {
 
@@ -1160,15 +926,14 @@ app.post(
 
             printQueue.push(job);
 
-            db.prepare(`
-
+            await db.query(
+                `
                 UPDATE orders
-
                 SET print_status = 'QUEUED'
-
-                WHERE order_id = ?
-
-            `).run(orderId);
+                WHERE order_id = $1
+                `,
+                [orderId]
+            );
 
             console.log(
                 "Print job added:"
@@ -1202,7 +967,9 @@ app.post(
                 success: false,
 
                 message:
-                    "Could not add order to print queue"
+                    "Could not add order to print queue",
+
+                error: error.message
             });
         }
     }
@@ -1258,17 +1025,20 @@ async function processPrintQueue() {
 
     try {
 
-        // Get current order
+        // ------------------------------------------
+        // GET ORDER
+        // ------------------------------------------
 
-        const order = db.prepare(`
-
+        const result = await db.query(
+            `
             SELECT *
-
             FROM orders
+            WHERE order_id = $1
+            `,
+            [job.orderId]
+        );
 
-            WHERE order_id = ?
-
-        `).get(job.orderId);
+        const order = result.rows[0];
 
         if (!order) {
 
@@ -1284,7 +1054,9 @@ async function processPrintQueue() {
             return;
         }
 
-        // Check payment
+        // ------------------------------------------
+        // PAYMENT CHECK
+        // ------------------------------------------
 
         if (
             order.payment_status !== "PAID"
@@ -1297,22 +1069,23 @@ async function processPrintQueue() {
 
             job.status = "FAILED";
 
-            db.prepare(`
-
+            await db.query(
+                `
                 UPDATE orders
-
                 SET print_status = 'FAILED'
-
-                WHERE order_id = ?
-
-            `).run(job.orderId);
+                WHERE order_id = $1
+                `,
+                [job.orderId]
+            );
 
             printQueue.shift();
 
             return;
         }
 
-        // Check PDF
+        // ------------------------------------------
+        // PDF CHECK
+        // ------------------------------------------
 
         if (
             !fs.existsSync(job.filePath)
@@ -1325,24 +1098,23 @@ async function processPrintQueue() {
 
             job.status = "FAILED";
 
-            db.prepare(`
-
+            await db.query(
+                `
                 UPDATE orders
-
                 SET print_status = 'FAILED'
-
-                WHERE order_id = ?
-
-            `).run(job.orderId);
+                WHERE order_id = $1
+                `,
+                [job.orderId]
+            );
 
             printQueue.shift();
 
             return;
         }
 
-        // ==========================================
+        // ------------------------------------------
         // DRY RUN
-        // ==========================================
+        // ------------------------------------------
 
         console.log(
             "--------------------------------"
@@ -1381,30 +1153,20 @@ async function processPrintQueue() {
             "--------------------------------"
         );
 
-        /*
-            IMPORTANT:
-
-            Actual physical printer command
-            abhi intentionally nahi chalaya ja raha.
-
-            Physical printer connect hone ke baad
-            yahan actual printing implement karenge.
-        */
+        // Physical printer will be handled
+        // by the local Print Agent.
 
         job.status =
             "WAITING_PRINTER";
 
-        db.prepare(`
-
+        await db.query(
+            `
             UPDATE orders
-
             SET print_status = 'WAITING_PRINTER'
-
-            WHERE order_id = ?
-
-        `).run(job.orderId);
-
-        // Remove from active queue
+            WHERE order_id = $1
+            `,
+            [job.orderId]
+        );
 
         printQueue.shift();
 
@@ -1422,15 +1184,14 @@ async function processPrintQueue() {
         job.status =
             "FAILED";
 
-        db.prepare(`
-
+        await db.query(
+            `
             UPDATE orders
-
             SET print_status = 'FAILED'
-
-            WHERE order_id = ?
-
-        `).run(job.orderId);
+            WHERE order_id = $1
+            `,
+            [job.orderId]
+        );
 
         printQueue.shift();
 
@@ -1440,7 +1201,9 @@ async function processPrintQueue() {
     }
 }
 
-// Check print queue every 5 seconds
+// ==========================================
+// CHECK QUEUE EVERY 5 SECONDS
+// ==========================================
 
 setInterval(
     processPrintQueue,
@@ -1453,14 +1216,13 @@ setInterval(
 
 app.get(
     "/api/orders",
-    (req, res) => {
+    async (req, res) => {
 
         try {
 
-            const orders = db.prepare(`
-
+            const result = await db.query(
+                `
                 SELECT
-
                     id,
                     order_id,
                     file_name,
@@ -1475,22 +1237,20 @@ app.get(
                     razorpay_payment_id,
                     created_at,
                     completed_at
-
                 FROM orders
-
                 ORDER BY id DESC
-
-            `).all();
+                `
+            );
 
             res.json({
 
                 success: true,
 
                 count:
-                    orders.length,
+                    result.rows.length,
 
                 orders:
-                    orders
+                    result.rows
             });
 
         } catch (error) {
@@ -1554,24 +1314,45 @@ app.use(
 // START SERVER
 // ==========================================
 
-app.listen(
-    PORT,
-    () => {
+async function startServer() {
 
-        console.log(
-            "--------------------------------"
+    try {
+
+        // Initialize PostgreSQL database
+        await db.initDatabase();
+
+        app.listen(
+            PORT,
+            "0.0.0.0",
+            () => {
+
+                console.log(
+                    "--------------------------------"
+                );
+
+                console.log(
+                    "Print Vending Backend Started"
+                );
+
+                console.log(
+                    "--------------------------------"
+                );
+
+                console.log(
+                    `Server: http://localhost:${PORT}`
+                );
+            }
         );
 
-        console.log(
-            "Print Vending Backend Started"
+    } catch (error) {
+
+        console.error(
+            "Failed to start server:",
+            error
         );
 
-        console.log(
-            "--------------------------------"
-        );
-
-        console.log(
-            `Server: http://localhost:${PORT}`
-        );
+        process.exit(1);
     }
-);
+}
+
+startServer();
